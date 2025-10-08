@@ -1,8 +1,9 @@
 //this js file is used to control user related operations like registering a new user, login existing user etc. and update the user details
 
-import { generateToken } from "../lib/Utils";
-import User from "../models/User";
+import { generateToken } from "../lib/Utils.js";
+import User from "../models/User.js";
 import bcrypt from "bcryptjs";
+import cloudinary from "../lib/cloudinary.js";
 
 //Sign up new User
 export const signUp = async (req, res) => {
@@ -28,7 +29,7 @@ export const signUp = async (req, res) => {
     const token = generateToken(newUser._id);
     res.json({
       success: true,
-      userData,
+      userData: newUser,
       token,
       message: "user Account is created successfully",
     });
@@ -43,17 +44,20 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const userData = await User.findOne({ email });
+    if (!userData) {
+      return res.json({ success: false, message: "User not found" });
+    }
     const isPasswordCorrect = await bcrypt.compare(password, userData.password);
 
     if (!isPasswordCorrect) {
       return res.json({ success: false, message: "Invalid login credentials" });
     }
-    const token = generateToken(newUser._id);
+    const token = generateToken(userData._id);
     res.json({
       success: true,
       userData,
       token,
-      message: "user Account is created successfully",
+      message: "user logged in successfully",
     });
   } catch (error) {
     console.error("Error during user sign up:", error);
@@ -61,4 +65,34 @@ export const login = async (req, res) => {
   }
 };
 
+//controller to check if user is authenticated or not
+export const checkAuth = async (req, res) => {
+  res.json({ success: true, user: req.user });
+};
 
+//controller to update user details
+export const updateProfile = async (req, res) => {
+  try {
+    const { profilePic, bio, fullName } = req.body;
+    const userId = req.user._id;
+    let updatedUser;
+    if (!profilePic) {
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { bio, fullName },
+        { new: true }
+      );
+    } else {
+      const upload = await cloudinary.uploader.upload(profilePic);
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { profilePic: upload.secure_url, bio, fullName },
+        { new: true }
+      );
+    }
+    res.json({ success: true, user: updatedUser });
+  } catch (error) {
+    console.error("Error during updating user profile:", error);
+    res.json({ success: false, message: "Internal server error" });
+  }
+};
