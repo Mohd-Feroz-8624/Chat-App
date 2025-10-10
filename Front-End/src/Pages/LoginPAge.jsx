@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import assets from "../assets/chat-app-assets/assets";
+import { useContext } from "react";
+import { AuthContext } from "../../conext/AuthContext";
 
 const LoginPAge = () => {
   const [currState, setCurrState] = useState("Sign Up");
@@ -8,12 +10,21 @@ const LoginPAge = () => {
   const [password, setPassword] = useState("");
   const [bio, setBio] = useState("");
   const [isDataSubmitted, setIsDataSubmitted] = useState(false);
+
+  const { login } = useContext(AuthContext);
+
   const onSubmitHandler = (e) => {
     e.preventDefault();
     if (currState === "Sign Up" && !isDataSubmitted) {
       setIsDataSubmitted(true);
       return;
     }
+    login(currState === "Sign Up" ? "signup" : "login", {
+      fullName,
+      email,
+      password,
+      bio,
+    });
   };
 
   return (
@@ -28,14 +39,14 @@ const LoginPAge = () => {
       >
         <h2 className="font-medium text-2xl flex justify-between items-center ">
           {currState}
-          {isDataSubmitted && 
+          {isDataSubmitted && (
             <img
               onClick={() => setIsDataSubmitted(false)}
               src={assets.arrow_icon}
               className="w-5 cursor-pointer"
               alt=""
             />
-          }
+          )}
         </h2>
         {currState === "Sign Up" && !isDataSubmitted && (
           <input
@@ -95,7 +106,7 @@ const LoginPAge = () => {
               Already have an account?
               <span
                 onClick={() => {
-                  setCurrState("Login ");
+                  setCurrState("Login");
                   setIsDataSubmitted(false);
                 }}
                 className="font-medium text-violet-500 cursor-pointer"
