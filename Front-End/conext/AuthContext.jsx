@@ -113,6 +113,7 @@ export const AuthProvider = ({ children }) => {
     authUser,
     onlineUsers,
     socket,
+    logout,
     login,
     updateProfile,
   };
