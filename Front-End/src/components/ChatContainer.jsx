@@ -60,14 +60,12 @@ export const ChatContainer = () => {
           alt=""
           className="w-10 rounded-full"
         />
-        <p className="flex-1 text-lg text-white flex items-center gap-2">
-          {selectedUser.fullName}
-
-          {onlineUsers.includes(selectedUser._id)}
-          {onlineUsers.includes(selectedUser._id) && (
-            <p className="w-2 h-2 rounded-full bg-green-500"></p>
-          )}
-        </p>
+        <div className="flex-1 text-lg text-white flex items-center gap-2">
+          <span className="mr-2">{selectedUser.fullName}</span>
+          {onlineUsers.includes(selectedUser._id) ? (
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+          ) : null}
+        </div>
         <img
           src={assets.arrow_icon}
           onClick={() => {

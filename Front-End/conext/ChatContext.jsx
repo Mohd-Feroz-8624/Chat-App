@@ -9,7 +9,7 @@ export const ChatContext = createContext();
 export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUserState] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({});
 
   const { socket, axios, authUser } = useContext(AuthContext);
@@ -43,12 +43,46 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
+  // helper to update messages with logging for debugging
+  const updateMessages = (updater) => {
+    try {
+      setMessages((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        console.debug(
+          "updateMessages: prevCount=",
+          prev?.length,
+          "nextCount=",
+          next?.length
+        );
+        if ((next?.length || 0) < (prev?.length || 0)) {
+          console.warn(
+            "updateMessages: messages decreased — possible overwrite/clear",
+            {
+              prevCount: prev?.length,
+              nextCount: next?.length,
+              stack: new Error().stack,
+            }
+          );
+        }
+        return next;
+      });
+    } catch (err) {
+      console.error("updateMessages error:", err);
+      setMessages(updater);
+    }
+  };
+
   // function to get messages for selected users
   const getMessages = async (userId) => {
     try {
+      console.debug("getMessages: fetching messages for userId=", userId);
       const { data } = await axios.get(`/api/message/${userId}`);
+      console.debug(
+        "getMessages: received data",
+        data && data.messages && data.messages.length
+      );
       if (data && data.success) {
-        setMessages(data.messages || []);
+        updateMessages(data.messages || []);
       }
     } catch (error) {
       toast.error(error.message || "Failed to fetch messages");
@@ -66,7 +100,7 @@ export const ChatProvider = ({ children }) => {
       if (data && data.success) {
         // backend returns the created message as `message` (not newMessage) — accept both
         const created = data.message || data.newMessage;
-        setMessages((prevMessages) => [...prevMessages, created]);
+        updateMessages((prevMessages) => [...prevMessages, created]);
       } else {
         toast.error(data.message || "Failed to send message");
       }
@@ -93,7 +127,7 @@ export const ChatProvider = ({ children }) => {
 
       if (selectedUser && senderId === selectedId) {
         newMessage.seen = true;
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        updateMessages((prevMessages) => [...prevMessages, newMessage]);
         // mark message as seen on server (use server's /api/message/mark/:id)
         axios.put(`/api/message/mark/${newMessage._id}`).catch(() => {});
       } else {
@@ -125,6 +159,36 @@ export const ChatProvider = ({ children }) => {
     }
   }, [authUser]);
 
+  // Restore selected user from localStorage after users are loaded
+  useEffect(() => {
+    const storedId = localStorage.getItem("selectedUserId");
+    if (storedId && users && users.length > 0) {
+      const found = users.find((u) => u._id === storedId);
+      if (found) {
+        // set selected user without writing again to localStorage
+        setSelectedUserState(found);
+      }
+    }
+  }, [users]);
+
+  // Clear selected user when authUser logs out
+  useEffect(() => {
+    if (!authUser) {
+      setSelectedUserState(null);
+      localStorage.removeItem("selectedUserId");
+    }
+  }, [authUser]);
+
+  // fetch messages whenever selected user changes (including restore)
+  useEffect(() => {
+    if (selectedUser && selectedUser._id) {
+      getMessages(selectedUser._id);
+    } else {
+      // clear messages when no selected user
+      updateMessages([]);
+    }
+  }, [selectedUser]);
+
   const value = {
     messages,
     users,
@@ -134,7 +198,15 @@ export const ChatProvider = ({ children }) => {
     setMessages,
     setMessages,
     sendMessages,
-    setSelectedUser,
+    // persist selection to localStorage when components set selected user
+    setSelectedUser: (user) => {
+      setSelectedUserState(user);
+      if (user && user._id) {
+        localStorage.setItem("selectedUserId", user._id);
+      } else {
+        localStorage.removeItem("selectedUserId");
+      }
+    },
     unseenMessages,
     setUnseenMessages,
   };
