@@ -85,8 +85,20 @@ export const sendMessage = async (req, res) => {
     //emit the new messaage to the reciver 's socket
 
     const receiverSocketId = userSocketMap[reciverId];
+    console.debug(
+      "sendMessage: reciverId=",
+      reciverId,
+      "receiverSocketId=",
+      receiverSocketId
+    );
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newNMessage);
+      console.debug(
+        "sendMessage: emitted newMessage to socket",
+        receiverSocketId
+      );
+    } else {
+      console.debug("sendMessage: receiver not connected, cannot emit");
     }
 
     res.json({ success: true, message: newNMessage });

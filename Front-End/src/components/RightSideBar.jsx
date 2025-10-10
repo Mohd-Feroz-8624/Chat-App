@@ -1,7 +1,23 @@
-import React from "react";
+import React, { useContext, useEffect, useState } from "react";
 import assets, { imagesDummyData } from "../assets/chat-app-assets/assets";
+import { ChatContext } from "../../conext/ChatContext";
+import { AuthContext } from "../../conext/AuthContext";
 
-const RightSideBar = ({ selectedUser }) => {
+const RightSideBar = () => {
+  const { selectedUser, messages } = useContext(ChatContext);
+  const { logout, onlineUsers } = useContext(AuthContext);
+  const [msgImages, setMsgImages] = useState([]);
+
+  useEffect(() => {
+    // derive gallery images from messages (only messages that have an image)
+    if (!messages || messages.length === 0) {
+      setMsgImages([]);
+      return;
+    }
+    const imgs = messages.filter((m) => m && m.image).map((m) => m.image);
+    setMsgImages(imgs);
+  }, [messages, selectedUser]);
+
   return (
     selectedUser && (
       <div className="border-gray-700 border-s h-full max-md:hidden">
@@ -12,7 +28,9 @@ const RightSideBar = ({ selectedUser }) => {
             className="w-20 aspect-[1/1] rounded-full "
           />
           <h1 className="px-10 text-xl font-medium mx-auto flex items-center gap-2">
-            <p className="w-2 h-2 rounded-full bg-green-500"></p>
+            {onlineUsers.includes(selectedUser._id) && (
+              <p className="w-2 h-2 rounded-full bg-green-500"></p>
+            )}
             {selectedUser.fullName}
           </h1>
           <p className="px-10 mx-auto">{selectedUser.bio}</p>
@@ -24,25 +42,30 @@ const RightSideBar = ({ selectedUser }) => {
             className="mt-2 max-h-[200px] overflow-y-scroll
           grid grid-cols-2 gap-3 opacity-80"
           >
-            {imagesDummyData.map((url, index) => (
+            {msgImages.map((url, index) => (
               <div
                 key={index}
                 className="cursor-pointer rounded "
                 onClick={() => window.open(url)}
               >
-                <img src={url} alt="" className="h-24 w-full object-cover rounded-md" />
+                <img
+                  src={url}
+                  alt=""
+                  className="h-24 w-full object-cover rounded-md"
+                />
               </div>
             ))}
           </div>
         </div>
-        
-          <button className=" mt-6 bottom-5  mx-auto block bg-gradient-to-r from-purple-400 to-violet-600 text-white text-sm py-2.5 px-20 font-light cursor-pointer rounded-full">
-            Logout
-          </button>
-        
+
+        <button
+          onClick={() => logout()}
+          className=" mt-6 bottom-5  mx-auto block bg-gradient-to-r from-purple-400 to-violet-600 text-white text-sm py-2.5 px-20 font-light cursor-pointer rounded-full"
+        >
+          Logout
+        </button>
       </div>
     )
-    
   );
 };
 

@@ -12,18 +12,33 @@ export const ChatProvider = ({ children }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({});
 
-  const { socket, axios } = useContext(AuthContext);
+  const { socket, axios, authUser } = useContext(AuthContext);
 
   //function to get all users for sidebar
 
   const getUsers = async () => {
     try {
-      const { data } = await axios.get("/api/messages/users");
+      console.debug(
+        "getUsers: axios.defaults.headers.common=",
+        axios.defaults.headers.common
+      );
+      console.debug(
+        "getUsers: localStorage token=",
+        localStorage.getItem("token")
+      );
+      // backend mounts messages routes under /api/message (singular)
+      const { data } = await axios.get("/api/message/users");
       if (data && data.success) {
         setUsers(data.users || []);
-        setUnseenMessages(data.unseenMessages || {});
+        // backend currently returns `unseenMesages` (typo) — accept both
+        setUnseenMessages(data.unseenMessages || data.unseenMesages || {});
       }
     } catch (error) {
+      console.error(
+        "getUsers error:",
+        error.response ? error.response.status : error.message,
+        error.response ? error.response.data : null
+      );
       toast.error(error.message || "Failed to fetch users");
     }
   };
@@ -31,7 +46,7 @@ export const ChatProvider = ({ children }) => {
   // function to get messages for selected users
   const getMessages = async (userId) => {
     try {
-      const { data } = await axios.get(`/api/messages/${userId}`);
+      const { data } = await axios.get(`/api/message/${userId}`);
       if (data && data.success) {
         setMessages(data.messages || []);
       }
@@ -45,16 +60,18 @@ export const ChatProvider = ({ children }) => {
   const sendMessages = async (messageData) => {
     try {
       const { data } = await axios.post(
-        `/api/messages/send/${selectedUser._id}`,
+        `/api/message/send/${selectedUser._id}`,
         messageData
       );
-      if (data.success) {
-        setMessages((prevMessages) => [...prevMessages, data.newMessage]);
+      if (data && data.success) {
+        // backend returns the created message as `message` (not newMessage) — accept both
+        const created = data.message || data.newMessage;
+        setMessages((prevMessages) => [...prevMessages, created]);
       } else {
-        toast.error(data.message);
+        toast.error(data.message || "Failed to send message");
       }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || "Failed to send message");
     }
   };
 
@@ -62,18 +79,28 @@ export const ChatProvider = ({ children }) => {
 
   const subscribeToMessages = async () => {
     if (!socket) return;
+    // ensure we don't attach multiple handlers
+    socket.off("newMessage");
     socket.on("newMessage", (newMessage) => {
-      // normalize selectedUser id check
-      if (selectedUser && newMessage.senderId === selectedUser._id) {
+      console.debug("ChatContext: received newMessage via socket:", newMessage);
+      // normalize ids to strings for reliable comparisons
+      const senderId = newMessage.senderId
+        ? newMessage.senderId.toString()
+        : newMessage.senderId;
+      const selectedId = selectedUser?._id
+        ? selectedUser._id.toString()
+        : selectedUser?._id;
+
+      if (selectedUser && senderId === selectedId) {
         newMessage.seen = true;
         setMessages((prevMessages) => [...prevMessages, newMessage]);
-        // mark message as seen on server (ensure correct route)
-        axios.put(`/api/messages/mark/${newMessage._id}`).catch(() => {});
+        // mark message as seen on server (use server's /api/message/mark/:id)
+        axios.put(`/api/message/mark/${newMessage._id}`).catch(() => {});
       } else {
         setUnseenMessages((prevUnseenMessages) => ({
           ...prevUnseenMessages,
-          [newMessage.senderId]: prevUnseenMessages[newMessage.senderId]
-            ? prevUnseenMessages[newMessage.senderId] + 1
+          [senderId]: prevUnseenMessages[senderId]
+            ? prevUnseenMessages[senderId] + 1
             : 1,
         }));
       }
@@ -91,13 +118,20 @@ export const ChatProvider = ({ children }) => {
     };
   }, [socket, selectedUser]);
 
+  // fetch users once authUser is available so token/headers are set
+  useEffect(() => {
+    if (authUser) {
+      getUsers();
+    }
+  }, [authUser]);
+
   const value = {
     messages,
     users,
     selectedUser,
     getUsers,
     setUsers,
-    getMessages,
+    setMessages,
     setMessages,
     sendMessages,
     setSelectedUser,

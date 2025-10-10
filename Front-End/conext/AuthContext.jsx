@@ -58,7 +58,8 @@ export const AuthProvider = ({ children }) => {
     setAuthUser(null);
     setToken(null);
     setOnlineUsers([]);
-    axios.defaults.headers.common["token"] = null;
+    delete axios.defaults.headers.common["token"];
+    delete axios.defaults.headers.common["Authorization"];
     toast.success("Logged out successfully");
     if (socket && typeof socket.disconnect === "function") socket.disconnect();
   };
@@ -96,6 +97,7 @@ export const AuthProvider = ({ children }) => {
     const storedToken = localStorage.getItem("token");
     if (storedToken) {
       axios.defaults.headers.common["token"] = storedToken;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
       setToken(storedToken);
     }
     console.debug(
@@ -106,7 +108,23 @@ export const AuthProvider = ({ children }) => {
       "axios headers:",
       axios.defaults.headers.common
     );
+
+    // Add axios interceptor to ensure every request carries the latest token
+    const interceptor = axios.interceptors.request.use((config) => {
+      const tokenNow = localStorage.getItem("token");
+      if (tokenNow) {
+        config.headers = config.headers || {};
+        config.headers["token"] = tokenNow;
+        config.headers["Authorization"] = `Bearer ${tokenNow}`;
+      }
+      return config;
+    });
+
     checkAuth();
+
+    return () => {
+      axios.interceptors.request.eject(interceptor);
+    };
   }, []);
   const value = {
     axios,
