@@ -61,5 +61,10 @@ app.get("/api/debug/echo-protected", protectRoute, (req, res) => {
 await connectDB();
 
 //PORT number setting up and server listening
-const PORT = process.env.PORT || 5001;
-server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+if(process.env.NODE_ENV !== "production" ){
+
+  const PORT = process.env.PORT || 5001;
+  server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+}
+//exporting for deployment
+export default server
