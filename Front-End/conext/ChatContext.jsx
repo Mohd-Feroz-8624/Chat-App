@@ -11,12 +11,19 @@ export const ChatProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUserState] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({});
+  // UI/UX States
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [typingUsers, setTypingUsers] = useState({}); // { userId: true }
+  const [onlineUsers, setOnlineUsers] = useState({}); // { userId: true }
 
   const { socket, axios, authUser } = useContext(AuthContext);
 
   //function to get all users for sidebar
 
   const getUsers = async () => {
+    if (isLoadingUsers) return;
+    setIsLoadingUsers(true);
     try {
       console.debug(
         "getUsers: axios.defaults.headers.common=",
@@ -40,6 +47,8 @@ export const ChatProvider = ({ children }) => {
         error.response ? error.response.data : null
       );
       toast.error(error.message || "Failed to fetch users");
+    } finally {
+      setIsLoadingUsers(false);
     }
   };
 
@@ -74,6 +83,8 @@ export const ChatProvider = ({ children }) => {
 
   // function to get messages for selected users
   const getMessages = async (userId) => {
+    if (isLoadingMessages) return;
+    setIsLoadingMessages(true);
     try {
       console.debug("getMessages: fetching messages for userId=", userId);
       const { data } = await axios.get(`/api/message/${userId}`);
@@ -86,6 +97,8 @@ export const ChatProvider = ({ children }) => {
       }
     } catch (error) {
       toast.error(error.message || "Failed to fetch messages");
+    } finally {
+      setIsLoadingMessages(false);
     }
   };
 
@@ -106,6 +119,20 @@ export const ChatProvider = ({ children }) => {
       }
     } catch (error) {
       toast.error(error.message || "Failed to send message");
+    }
+  };
+
+  // function to emit typing start event
+  const startTyping = () => {
+    if (socket && selectedUser) {
+      socket.emit("typing", { recipientId: selectedUser._id });
+    }
+  };
+
+  // function to emit typing stop event
+  const stopTyping = () => {
+    if (socket && selectedUser) {
+      socket.emit("stopTyping", { recipientId: selectedUser._id });
     }
   };
 
@@ -139,6 +166,27 @@ export const ChatProvider = ({ children }) => {
         }));
       }
     });
+
+    // Listen for online users
+    socket.off("onlineUsers");
+    socket.on("onlineUsers", (users) => {
+      const usersMap = users.reduce((acc, userId) => {
+        acc[userId] = true;
+        return acc;
+      }, {});
+      setOnlineUsers(usersMap);
+    });
+
+    // Listen for typing indicators
+    socket.off("typing");
+    socket.on("typing", ({ senderId }) => {
+      setTypingUsers((prev) => ({ ...prev, [senderId]: true }));
+    });
+
+    socket.off("stopTyping");
+    socket.on("stopTyping", ({ senderId }) => {
+      setTypingUsers((prev) => ({ ...prev, [senderId]: false }));
+    });
   };
 
   //function to unsubscribe from messages
@@ -150,7 +198,7 @@ export const ChatProvider = ({ children }) => {
     return () => {
       unSubscribeFromMessages();
     };
-  }, [socket, selectedUser]);
+  }, [socket, selectedUser, authUser]);
 
   // fetch users once authUser is available so token/headers are set
   useEffect(() => {
@@ -209,6 +257,12 @@ export const ChatProvider = ({ children }) => {
     },
     unseenMessages,
     setUnseenMessages,
+    isLoadingUsers,
+    isLoadingMessages,
+    onlineUsers,
+    typingUsers,
+    startTyping,
+    stopTyping,
   };
   return <ChatContext.Provider value={value}> {children}</ChatContext.Provider>;
 };
