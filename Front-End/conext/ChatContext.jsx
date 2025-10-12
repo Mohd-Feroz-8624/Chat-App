@@ -196,7 +196,7 @@ export const ChatProvider = ({ children }) => {
     getUsers,
     setUsers,
     setMessages,
-    setMessages,
+    getMessages,
     sendMessages,
     // persist selection to localStorage when components set selected user
     setSelectedUser: (user) => {
