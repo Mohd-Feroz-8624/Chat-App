@@ -1,7 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import obfuscator from "vite-plugin-javascript-obfuscator";
+import pkg from "vite-plugin-javascript-obfuscator";
+const obfuscator = pkg.obfuscator || pkg.default || pkg;
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
