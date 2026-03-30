@@ -7,18 +7,29 @@ import { AuthContext } from "../../conext/AuthContext";
 import toast from "react-hot-toast";
 
 export const ChatContainer = () => {
-  const {
-    messages,
-    selectedUser,
-    setSelectedUser,
-    sendMessages,
-    getMessages,
-    setMessages,
-  } = useContext(ChatContext);
+  const { messages, selectedUser, setSelectedUser, sendMessages, getMessages } =
+    useContext(ChatContext);
   const { authUser, onlineUsers } = useContext(AuthContext);
 
   const scrollEnd = useRef();
   const [input, setInput] = useState("");
+
+  const isMyMessage = (msg) => {
+    const senderId = msg?.senderId?.toString?.() || msg?.senderId;
+    const myId = authUser?._id?.toString?.() || authUser?._id;
+    return senderId === myId;
+  };
+
+  const renderMessageStatus = (status) => {
+    if (status === "seen") {
+      return <span className="text-white">✔✔</span>;
+    }
+    if (status === "delivered") {
+      return <span className="text-gray-300">✔✔</span>;
+    }
+    return <span className="text-gray-300">✔</span>;
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (input.trim() === "") return null;
@@ -45,7 +56,7 @@ export const ChatContainer = () => {
     if (selectedUser && getMessages) {
       getMessages(selectedUser._id);
     }
-  }, [selectedUser]);
+  }, [selectedUser, getMessages]);
   useEffect(() => {
     if (scrollEnd?.current && messages) {
       scrollEnd.current.scrollIntoView({ behavior: "smooth" });
@@ -86,7 +97,7 @@ export const ChatContainer = () => {
           <div
             key={index}
             className={`flex  items-end gap-2 justify-end ${
-              msg.senderId !== authUser._id && "flex-row-reverse"
+              !isMyMessage(msg) && "flex-row-reverse"
             }`}
           >
             {msg.image ? (
@@ -98,9 +109,7 @@ export const ChatContainer = () => {
             ) : (
               <p
                 className={`p-2 max-w-[200px] md:text-sm font-light rounded-lg mb-8 break-all bg-violet-500/30 text-white ${
-                  msg.senderId === authUser._id
-                    ? "rounded-br-none"
-                    : "rounded-bl-none"
+                  isMyMessage(msg) ? "rounded-br-none" : "rounded-bl-none"
                 }`}
               >
                 {msg.text}
@@ -109,16 +118,17 @@ export const ChatContainer = () => {
             <div className="text-center text-xs ">
               <img
                 src={
-                  msg.senderId === authUser._id
+                  isMyMessage(msg)
                     ? authUser?.profilePic || assets.avatar_icon
                     : selectedUser?.profilePic || assets.avatar_icon
                 }
                 alt=""
                 className="w-7 rounded-full"
               />
-              <p className="text-gray-500">
-                {formatMessageTime(msg.createdAt)}
-              </p>
+              <div className="text-gray-500 flex items-center justify-center gap-1">
+                <span>{formatMessageTime(msg.createdAt)}</span>
+                {isMyMessage(msg) && renderMessageStatus(msg.status)}
+              </div>
             </div>
           </div>
         ))}

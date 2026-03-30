@@ -25,14 +25,6 @@ export const ChatProvider = ({ children }) => {
     if (isLoadingUsers) return;
     setIsLoadingUsers(true);
     try {
-      console.debug(
-        "getUsers: axios.defaults.headers.common=",
-        axios.defaults.headers.common
-      );
-      console.debug(
-        "getUsers: localStorage token=",
-        localStorage.getItem("token")
-      );
       // backend mounts messages routes under /api/message (singular)
       const { data } = await axios.get("/api/message/users");
       if (data && data.success) {
@@ -44,7 +36,7 @@ export const ChatProvider = ({ children }) => {
       console.error(
         "getUsers error:",
         error.response ? error.response.status : error.message,
-        error.response ? error.response.data : null
+        error.response ? error.response.data : null,
       );
       toast.error(error.message || "Failed to fetch users");
     } finally {
@@ -57,22 +49,6 @@ export const ChatProvider = ({ children }) => {
     try {
       setMessages((prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
-        console.debug(
-          "updateMessages: prevCount=",
-          prev?.length,
-          "nextCount=",
-          next?.length
-        );
-        if ((next?.length || 0) < (prev?.length || 0)) {
-          console.warn(
-            "updateMessages: messages decreased — possible overwrite/clear",
-            {
-              prevCount: prev?.length,
-              nextCount: next?.length,
-              stack: new Error().stack,
-            }
-          );
-        }
         return next;
       });
     } catch (err) {
@@ -86,12 +62,7 @@ export const ChatProvider = ({ children }) => {
     if (isLoadingMessages) return;
     setIsLoadingMessages(true);
     try {
-      console.debug("getMessages: fetching messages for userId=", userId);
       const { data } = await axios.get(`/api/message/${userId}`);
-      console.debug(
-        "getMessages: received data",
-        data && data.messages && data.messages.length
-      );
       if (data && data.success) {
         updateMessages(data.messages || []);
       }
@@ -108,7 +79,7 @@ export const ChatProvider = ({ children }) => {
     try {
       const { data } = await axios.post(
         `/api/message/send/${selectedUser._id}`,
-        messageData
+        messageData,
       );
       if (data && data.success) {
         // backend returns the created message as `message` (not newMessage) — accept both
@@ -143,7 +114,6 @@ export const ChatProvider = ({ children }) => {
     // ensure we don't attach multiple handlers
     socket.off("newMessage");
     socket.on("newMessage", (newMessage) => {
-      console.debug("ChatContext: received newMessage via socket:", newMessage);
       // normalize ids to strings for reliable comparisons
       const senderId = newMessage.senderId
         ? newMessage.senderId.toString()
@@ -154,6 +124,7 @@ export const ChatProvider = ({ children }) => {
 
       if (selectedUser && senderId === selectedId) {
         newMessage.seen = true;
+        newMessage.status = "seen";
         updateMessages((prevMessages) => [...prevMessages, newMessage]);
         // mark message as seen on server (use server's /api/message/mark/:id)
         axios.put(`/api/message/mark/${newMessage._id}`).catch(() => {});
@@ -165,6 +136,35 @@ export const ChatProvider = ({ children }) => {
             : 1,
         }));
       }
+    });
+
+    socket.off("messageStatusUpdated");
+    socket.on("messageStatusUpdated", ({ messageId, status }) => {
+      updateMessages((prevMessages) =>
+        prevMessages.map((msg) => {
+          if (msg._id?.toString() !== messageId?.toString()) return msg;
+          return {
+            ...msg,
+            status,
+            seen: status === "seen" ? true : msg.seen,
+          };
+        }),
+      );
+    });
+
+    socket.off("messageStatusBulkUpdated");
+    socket.on("messageStatusBulkUpdated", ({ messageIds, status }) => {
+      const ids = new Set((messageIds || []).map((id) => id.toString()));
+      updateMessages((prevMessages) =>
+        prevMessages.map((msg) => {
+          if (!ids.has(msg._id?.toString())) return msg;
+          return {
+            ...msg,
+            status,
+            seen: status === "seen" ? true : msg.seen,
+          };
+        }),
+      );
     });
 
     // Listen for online users
@@ -191,7 +191,10 @@ export const ChatProvider = ({ children }) => {
 
   //function to unsubscribe from messages
   const unSubscribeFromMessages = () => {
-    if (socket) socket.off("newMessage");
+    if (!socket) return;
+    socket.off("newMessage");
+    socket.off("messageStatusUpdated");
+    socket.off("messageStatusBulkUpdated");
   };
   useEffect(() => {
     subscribeToMessages();

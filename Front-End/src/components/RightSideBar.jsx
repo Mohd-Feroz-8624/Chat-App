@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import assets, { imagesDummyData } from "../assets/chat-app-assets/assets";
+import assets from "../assets/chat-app-assets/assets";
 import { ChatContext } from "../../conext/ChatContext";
 import { AuthContext } from "../../conext/AuthContext";
 

@@ -14,8 +14,14 @@ const messageSchema = new mongoose.Schema(
     },
     text: { type: String },
     image: { type: String, default: "" },
+    status: {
+      type: String,
+      enum: ["sent", "delivered", "seen"],
+      default: "sent",
+    },
+    seen: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const message = mongoose.model("message", messageSchema);
