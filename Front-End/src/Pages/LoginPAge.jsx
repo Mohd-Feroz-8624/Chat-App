@@ -8,13 +8,35 @@ const LoginPAge = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [bio, setBio] = useState("");
   const [isDataSubmitted, setIsDataSubmitted] = useState(false);
 
-  const { login } = useContext(AuthContext);
+  const { login, changePassword } = useContext(AuthContext);
 
   const onSubmitHandler = (e) => {
     e.preventDefault();
+
+    if (currState === "Change Password") {
+      if (newPassword !== confirmPassword) {
+        return;
+      }
+      changePassword({
+        email,
+        currentPassword: password,
+        newPassword,
+      }).then((ok) => {
+        if (ok) {
+          setCurrState("Login");
+          setPassword("");
+          setNewPassword("");
+          setConfirmPassword("");
+        }
+      });
+      return;
+    }
+
     if (currState === "Sign Up" && !isDataSubmitted) {
       setIsDataSubmitted(true);
       return;
@@ -73,10 +95,35 @@ const LoginPAge = () => {
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               value={password}
-              placeholder="Enter Password"
+              placeholder={
+                currState === "Change Password"
+                  ? "Current Password"
+                  : "Enter Password"
+              }
               required
               className="p-2 border border-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+
+            {currState === "Change Password" && (
+              <>
+                <input
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  type="password"
+                  value={newPassword}
+                  placeholder="New Password"
+                  required
+                  className="p-2 border border-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <input
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  type="password"
+                  value={confirmPassword}
+                  placeholder="Confirm New Password"
+                  required
+                  className="p-2 border border-gray-500 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </>
+            )}
           </>
         )}
 
@@ -93,7 +140,11 @@ const LoginPAge = () => {
           type="submit"
           className="py-3 bg-gradient-to-r from-purple-400 to-violet-600 text-white rounded-md cursor-pointer"
         >
-          {currState === "Sign Up" ? "create Account" : "Login Now"}
+          {currState === "Sign Up"
+            ? "create Account"
+            : currState === "Change Password"
+              ? "Update Password"
+              : "Login Now"}
         </button>
 
         <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -115,14 +166,42 @@ const LoginPAge = () => {
               </span>
             </p>
           ) : (
-            <p className="text-sm text-gray-600 ">
+            <p className="text-sm text-gray-500 ">
               Create an Account
               <span
-                onClick={() => setCurrState("Sign Up")}
-                className="font-medium text-violet-500 cursor-pointer"
+                onClick={() => {
+                  setCurrState("Sign Up");
+                  setIsDataSubmitted(false);
+                }}
+                className="font-medium text-violet-500 cursor-pointer m-2"
               >
                 Click Here
               </span>
+              {currState !== "Change Password" && (
+                <p className="text-sm text-gray-500">
+                  Forgot password?
+                  <span
+                    onClick={() => {
+                      setCurrState("Change Password");
+                      setIsDataSubmitted(false);
+                    }}
+                    className="font-medium text-violet-500 cursor-pointer m-2"
+                  >
+                    Change Here
+                  </span>
+                </p>
+              )}
+              {currState === "Change Password" && (
+                <p className="text-xs text-gray-500">
+                  Back to login?
+                  <span
+                    onClick={() => setCurrState("Login")}
+                    className="font-medium text-violet-500 cursor-pointer"
+                  >
+                    Login Here
+                  </span>
+                </p>
+              )}
             </p>
           )}
         </div>

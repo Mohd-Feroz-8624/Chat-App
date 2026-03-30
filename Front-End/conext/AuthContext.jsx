@@ -17,8 +17,6 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       const { data } = await axios.get("/api/auth/check");
-
-      console.debug("checkAuth response:", data);
       if (data && data.success) {
         setAuthUser(data.user);
         conncetSocket(data.user);
@@ -49,6 +47,21 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       toast.error(error.message);
+    }
+  };
+
+  const changePassword = async (payload) => {
+    try {
+      const { data } = await axios.post("/api/auth/change-password", payload);
+      if (data?.success) {
+        toast.success(data.message || "Password updated successfully");
+        return true;
+      }
+      toast.error(data?.message || "Failed to update password");
+      return false;
+    } catch (error) {
+      toast.error(error.message || "Failed to update password");
+      return false;
     }
   };
 
@@ -100,15 +113,6 @@ export const AuthProvider = ({ children }) => {
       axios.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
       setToken(storedToken);
     }
-    console.debug(
-      "backendUrl=",
-      backendUrl,
-      "initial token=",
-      storedToken,
-      "axios headers:",
-      axios.defaults.headers.common
-    );
-
     // Add axios interceptor to ensure every request carries the latest token
     const interceptor = axios.interceptors.request.use((config) => {
       const tokenNow = localStorage.getItem("token");
@@ -133,6 +137,7 @@ export const AuthProvider = ({ children }) => {
     socket,
     logout,
     login,
+    changePassword,
     updateProfile,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

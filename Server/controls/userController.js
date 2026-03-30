@@ -65,6 +65,50 @@ export const login = async (req, res) => {
   }
 };
 
+// controller to change password from login page
+export const changePassword = async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+
+    if (!email || !currentPassword || !newPassword) {
+      return res.json({ success: false, message: "Missing required fields" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.json({
+        success: false,
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    const userData = await User.findOne({ email });
+    if (!userData) {
+      return res.json({ success: false, message: "User not found" });
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(
+      currentPassword,
+      userData.password,
+    );
+
+    if (!isPasswordCorrect) {
+      return res.json({ success: false, message: "Current password is wrong" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await User.findByIdAndUpdate(userData._id, { password: hashedPassword });
+
+    return res.json({
+      success: true,
+      message: "Password updated successfully",
+    });
+  } catch (error) {
+    console.error("Error during change password:", error);
+    return res.json({ success: false, message: "Internal server error" });
+  }
+};
+
 //controller to check if user is authenticated or not
 export const checkAuth = async (req, res) => {
   res.json({ success: true, user: req.user });
@@ -80,14 +124,14 @@ export const updateProfile = async (req, res) => {
       updatedUser = await User.findByIdAndUpdate(
         userId,
         { bio, fullName },
-        { new: true }
+        { new: true },
       );
     } else {
       const upload = await cloudinary.uploader.upload(profilePic);
       updatedUser = await User.findByIdAndUpdate(
         userId,
         { profilePic: upload.secure_url, bio, fullName },
-        { new: true }
+        { new: true },
       );
     }
     res.json({ success: true, user: updatedUser });

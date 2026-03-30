@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import assets from "../assets/chat-app-assets/assets";
 import { useContext } from "react";
@@ -8,24 +8,19 @@ import { ChatContext } from "../../conext/ChatContext";
 const SideBar = () => {
   const { logout, onlineUsers } = useContext(AuthContext);
   const {
-    getUsers,
     users,
     selectedUser,
     setSelectedUser,
     unseenMessages,
     setUnseenMessages,
   } = useContext(ChatContext);
-  const [input, setInput] = useState(false);
+  // const [input, setInput] = useState(false);
   const [search, setSearch] = useState("");
   const filteredUsers = search
     ? users.filter((user) =>
-        user.fullName?.toLowerCase().includes(search.toLowerCase())
+        user.fullName?.toLowerCase().includes(search.toLowerCase()),
       )
     : users;
-  useEffect(() => {
-    // fetch users whenever online users change or on mount
-    getUsers && typeof getUsers === "function" && getUsers();
-  }, [onlineUsers]);
   const navigate = useNavigate();
   return (
     <div

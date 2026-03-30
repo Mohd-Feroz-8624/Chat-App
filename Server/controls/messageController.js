@@ -7,7 +7,7 @@ export const getUsersForSidebar = async (req, res) => {
   try {
     const userId = req.user._id;
     const filteredUsers = await User.find({ _id: { $ne: userId } }).select(
-      "-password "
+      "-password ",
     );
     const unseenMesages = {};
     const promises = filteredUsers.map(async (user) => {
@@ -40,10 +40,29 @@ export const getMessages = async (req, res) => {
         { senderId: selectedUserId, reciverId: myId },
       ],
     });
-    await message.updateMany(
-      { senderId: selectedUserId, reciverId: myId },
-      { seen: true }
-    );
+
+    const unseenMessages = await message.find({
+      senderId: selectedUserId,
+      reciverId: myId,
+      status: { $ne: "seen" },
+    });
+
+    if (unseenMessages.length > 0) {
+      const unseenIds = unseenMessages.map((msg) => msg._id);
+      await message.updateMany(
+        { _id: { $in: unseenIds } },
+        { seen: true, status: "seen" },
+      );
+
+      const senderSocketId = userSocketMap[selectedUserId?.toString()];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messageStatusBulkUpdated", {
+          messageIds: unseenIds,
+          status: "seen",
+        });
+      }
+    }
+
     res.json({ success: true, messages });
   } catch (error) {
     console.log(error.message);
@@ -55,7 +74,22 @@ export const getMessages = async (req, res) => {
 export const markMessagesAsSeen = async (req, res) => {
   try {
     const { id } = req.params;
-    await message.findByIdAndUpdate(id, { seen: true });
+    const updatedMessage = await message.findByIdAndUpdate(
+      id,
+      { seen: true, status: "seen" },
+      { new: true },
+    );
+
+    if (updatedMessage) {
+      const senderSocketId = userSocketMap[updatedMessage.senderId?.toString()];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messageStatusUpdated", {
+          messageId: updatedMessage._id,
+          status: "seen",
+        });
+      }
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.log(error.message);
@@ -80,6 +114,8 @@ export const sendMessage = async (req, res) => {
       reciverId,
       text,
       image: imageUrl,
+      status: "sent",
+      seen: false,
     });
 
     //emit the new messaage to the reciver 's socket
@@ -89,14 +125,28 @@ export const sendMessage = async (req, res) => {
       "sendMessage: reciverId=",
       reciverId,
       "receiverSocketId=",
-      receiverSocketId
+      receiverSocketId,
     );
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newNMessage);
+      const deliveredMessage = await message.findByIdAndUpdate(
+        newNMessage._id,
+        { status: "delivered" },
+        { new: true },
+      );
+
+      io.to(receiverSocketId).emit("newMessage", deliveredMessage);
+      const senderSocketId = userSocketMap[senderId?.toString()];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messageStatusUpdated", {
+          messageId: newNMessage._id,
+          status: "delivered",
+        });
+      }
       console.debug(
         "sendMessage: emitted newMessage to socket",
-        receiverSocketId
+        receiverSocketId,
       );
+      return res.json({ success: true, message: deliveredMessage });
     } else {
       console.debug("sendMessage: receiver not connected, cannot emit");
     }
