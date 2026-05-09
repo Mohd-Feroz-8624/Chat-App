@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
       const { data } = await axios.get("/api/auth/check");
       if (data && data.success) {
         setAuthUser(data.user);
-        conncetSocket(data.user);
+        connectSocket(data.user);
       }
     } catch (error) {
       console.error("Error checking auth:", error);
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
       const { data } = await axios.post(`/api/auth/${action}`, credentials);
       if (data.success) {
         setAuthUser(data.userData);
-        conncetSocket(data.userData);
+        connectSocket(data.userData);
         // set both custom 'token' header and standard Authorization header
         axios.defaults.headers.common["token"] = data.token;
         axios.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
@@ -90,8 +90,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  //conncet socket function to handle socket connection and online users and update
-  const conncetSocket = (userData) => {
+  //connect socket function to handle socket connection and online users and update
+  const connectSocket = (userData) => {
     if (!userData || (socket && socket.connected)) return;
     const newSocket = io(backendUrl, {
       query: {
