@@ -1,7 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+<<<<<<< HEAD
 import obfuscatorPlugin from "vite-plugin-javascript-obfuscator";
+=======
+import pkg from "vite-plugin-javascript-obfuscator";
+// const obfuscator = pkg.obfuscator || pkg.default || pkg;
+>>>>>>> 2ee360173009d123231ed421302a9af68a194050
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -9,7 +14,12 @@ export default defineConfig(({ mode }) => ({
     react(),
     tailwindcss(),
     mode === "production" &&
+<<<<<<< HEAD
       obfuscatorPlugin({
+=======
+      // obfuscator
+      ({
+>>>>>>> 2ee360173009d123231ed421302a9af68a194050
         options: {
           compact: true,
           controlFlowFlattening: true,
